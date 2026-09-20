@@ -21,7 +21,8 @@ async def on_ready():
 				print(f"Failed to query search index: {e}")
 
 			age = datetime.datetime.now(datetime.timezone.utc) - channel.created_at
-			rate = messages / (age.total_seconds() * 60 * 60)
+			hours = age.total_seconds() / 3600
+			rate = messages / hours if hours > 0 else 0
 
 			dms.append({
 				"name": channel.recipient.name,
@@ -36,8 +37,8 @@ async def on_ready():
 	dms.sort(key=lambda x: x.get("rate"))
 
 	print("=== Top 10 ===")
-	for idx, dm in enumerate(dms[:9]):
-		print(f"#{idx}: {dm.display_name}\n\t- {dm["rate"]} messages/hour\n\t- {dm["messages"]} total messages\n\t- Age: {dm["age"]}")
+	for idx, dm in enumerate(dms[:10]):
+		print(f"#{idx}: {dm["display_name"]}\n\t- {dm["rate"]} messages/hour\n\t- {dm["messages"]} total messages\n\t- Age: {dm["age"]}")
 
 if __name__ == "__main__":
 	bot.run(os.getenv("TOKEN"))
