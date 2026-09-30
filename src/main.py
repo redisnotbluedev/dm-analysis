@@ -1,4 +1,4 @@
-import discord, dotenv, rich, os, rich.progress, datetime, discord.http, asyncio, json
+import discord, dotenv, rich, os, rich.progress, datetime, discord.http, asyncio, json, sys
 from discord.ext import commands
 from rich.console import Console
 from rich.table import Table
@@ -19,8 +19,7 @@ def format_seconds(seconds):
 		return f"{days}d {hours}h"
 	return f"{hours}h"
 
-def generate_leaderboard_table(title, data, key_fn, format_val_fn, header_name, reverse=True, limit=5, style="cyan"):
-	"""Generates a Rich Table object using purely cached attributes."""
+def generate_leaderboard_table(title, data, key_fn, format_val_fn, header_name, reverse=True, limit=10, style="cyan"):
 	sorted_data = sorted(data, key=key_fn, reverse=reverse)
 
 	table = Table(title=f"[bold {style}]{title}[/]", title_justify="left", expand=True, border_style=style)
@@ -31,7 +30,7 @@ def generate_leaderboard_table(title, data, key_fn, format_val_fn, header_name, 
 	for idx, dm in enumerate(sorted_data[:limit]):
 		table.add_row(
 			f"#{idx + 1}",
-			f"[bold]{dm['display_name']}[/] (@{dm['name']})",
+			f"[bold]{dm["display_name"]}[/] (@{dm["name"]})",
 			format_val_fn(dm)
 		)
 	return table
@@ -79,9 +78,6 @@ async def on_ready():
 			with open("data.json", "w") as f:
 				json.dump(dms, f, indent=4)
 
-		# --- RICH TEXT METRICS DISPLAY (USING EXCLUSIVELY CACHED DATA) ---
-
-		# 1. Overall Aggregates Panel
 		total_dms = len(dms)
 		total_messages_across_all = sum(dm["messages"] for dm in dms)
 		avg_messages = total_messages_across_all / total_dms if total_dms > 0 else 0
@@ -96,22 +92,20 @@ async def on_ready():
 		console.print(Panel(stats_summary, title="[bold reverse white] 📊 OVERALL DM STATS [/]", expand=False, border_style="white"))
 		console.print("\n")
 
-		# 2. Side-by-Side Leaderboard Layouts
-		# Row 1: Activity Leaderboards
 		t1 = generate_leaderboard_table(
-			title="🏆 MOST ACTIVE",
+			title="Most Active",
 			data=dms,
 			key_fn=lambda x: x["messages"],
-			format_val_fn=lambda x: f"[green]{x['messages']:,}[/] msgs",
+			format_val_fn=lambda x: f"[green]{x["messages"]:,}[/] msgs",
 			header_name="Total Vol",
 			style="spring_green3"
 		)
 
 		t2 = generate_leaderboard_table(
-			title="⚡ HIGHEST RATE",
+			title="Highest Rate",
 			data=dms,
 			key_fn=lambda x: x["rate"],
-			format_val_fn=lambda x: f"[cyan]{x['rate']:.4f}[/] /hr",
+			format_val_fn=lambda x: f"[cyan]{x["rate"]:.4f}[/] /hr",
 			header_name="Msgs/Hour",
 			style="deep_sky_blue3"
 		)
@@ -119,30 +113,30 @@ async def on_ready():
 		console.print(Columns([t1, t2], expand=True))
 		console.print("\n")
 
-		# Row 2: Age Leaderboards
 		t3 = generate_leaderboard_table(
-			title="⏳ OLDEST DM CHANNELS",
+			title="Oldest Channels",
 			data=dms,
 			key_fn=lambda x: x["age_seconds"],
-			format_val_fn=lambda x: f"[yellow]{format_seconds(x['age_seconds'])}[/]",
+			format_val_fn=lambda x: f"[yellow]{format_seconds(x["age_seconds"])}[/]",
 			header_name="Age",
 			style="gold3"
 		)
 
-		# Filter criteria relies purely on properties already cached inside data.json
-		aged_dms = [dm for dm in dms if dm["age_seconds"] > 604800] # Over 7 days old
+		aged_dms = [dm for dm in dms if dm["age_seconds"] > 604800]
 		t4 = generate_leaderboard_table(
-			title="💀 GHOST TOWNS (Chats over 1 week old)",
+			title="Lowest Rate",
 			data=aged_dms,
 			key_fn=lambda x: x["rate"],
-			format_val_fn=lambda x: f"[red]{x['rate']:.6f}[/] /hr",
+			format_val_fn=lambda x: f"[red]{x["rate"]:.6f}[/] /hr",
 			header_name="Msgs/Hour",
-			reverse=False, # Ascending order for lowest rate
+			reverse=False,
 			style="bright_red"
 		)
 
 		console.print(Columns([t3, t4], expand=True))
 		console.print("\n")
+
+	await bot.close()
 
 if __name__ == "__main__":
 	bot.run(os.getenv("TOKEN"))
